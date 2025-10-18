@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: kl-sender-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: carrental_db
+      MYSQL_USER: car_user
+      MYSQL_PASSWORD: car_password
+    volumes:
+      - db_data:/var/lib/mysql
+    # Port binding removed to avoid host port conflicts (MySQL is accessible to other services
+    # on the compose network at host 'mysql:3306'). If you need to connect from the host,
+    # uncomment and change the host port (for example, "3307:3306").
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ./backend/carrental-backend
+      dockerfile: Dockerfile
+    container_name: kl-sender-backend
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/carrental_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - SPRING_DATASOURCE_USERNAME=car_user
+      - SPRING_DATASOURCE_PASSWORD=car_password
+    depends_on:
+      - mysql
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend/carrental-frontend
+      dockerfile: dockerfile
+    container_name: kl-sender-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+volumes:
+  db_data:
+
+networks:
+  app-network:
+    driver: bridge
